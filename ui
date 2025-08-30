@@ -14,7 +14,7 @@ github.com/discoart/FluentPlus | dsc.gg/hydrahub
 
 --- button
 local Show_Button = false
-local Button_Icon = "rbxassetid://10723375250"
+local Button_Icon = ""
 ---
 
 local Lighting = game:GetService("Lighting")
