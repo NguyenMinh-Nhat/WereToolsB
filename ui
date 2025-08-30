@@ -14,7 +14,7 @@ github.com/discoart/FluentPlus | dsc.gg/hydrahub
 
 --- button
 local Show_Button = true
-local Button_Icon = "https://imagizer.imageshack.com/img924/3550/syF2Vn.png"
+local Button_Icon = "fingerprint"
 ---
 
 local Lighting = game:GetService("Lighting")
