@@ -6699,7 +6699,7 @@ local MinimizeButton = New("TextButton", {
 		PaddingTop = UDim.new(0, 2),
 	}),
 	New("ImageLabel", {
-		Image = Mobile and (Button_Icon ~= "" and Button_Icon or "rbxassetid://10723375250") or "rbxassetid://10723375250",
+		Image = Mobile and (Button_Icon ~= "" and Button_Icon or "rbxassetid://1072337525") or "rbxassetid://1072337525",
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
 	}, {
