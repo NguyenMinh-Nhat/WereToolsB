@@ -2270,33 +2270,31 @@ Components.Tab = (function()
         })
 
         -- Ensure CanvasSize updates reliably when layout changes or children change
-        Creator.AddSignal(ContainerLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-            -- small defer to ensure layout finished updating
+        local function recalcCanvas()
+            if not Tab.ContainerFrame or not ContainerLayout then return end
             task.defer(function()
-                if Tab.ContainerFrame and ContainerLayout then
-                    local height = math.max(0, ContainerLayout.AbsoluteContentSize.Y + 4)
-                    Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, height)
+                if not Tab.ContainerFrame or not ContainerLayout then return end
+                local height = math.max(0, ContainerLayout.AbsoluteContentSize.Y + 8)
+                Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, height)
+                if Tab.ContainerFrame.AbsoluteSize and Tab.ContainerFrame.AbsoluteSize.Y then
+                    Tab.ContainerFrame.ScrollingEnabled = (height > Tab.ContainerFrame.AbsoluteSize.Y)
                 end
             end)
+        end
+
+        Creator.AddSignal(ContainerLayout:GetPropertyChangedSignal("AbsoluteContentSize"), recalcCanvas)
+        Creator.AddSignal(Tab.ContainerFrame.ChildAdded, recalcCanvas)
+        Creator.AddSignal(Tab.ContainerFrame.ChildRemoved, recalcCanvas)
+
+        -- Recalculate when the frame becomes visible (layout may be 0 while invisible)
+        Creator.AddSignal(Tab.ContainerFrame:GetPropertyChangedSignal("Visible"), function()
+            if Tab.ContainerFrame.Visible then
+                task.defer(recalcCanvas)
+            end
         end)
 
-        -- also update when children are added/removed (some operations don't immediately change AbsoluteContentSize)
-        Creator.AddSignal(Tab.ContainerFrame.ChildAdded, function()
-            task.defer(function()
-                if ContainerLayout and Tab.ContainerFrame then
-                    local height = math.max(0, ContainerLayout.AbsoluteContentSize.Y + 4)
-                    Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, height)
-                end
-            end)
-        end)
-        Creator.AddSignal(Tab.ContainerFrame.ChildRemoved, function()
-            task.defer(function()
-                if ContainerLayout and Tab.ContainerFrame then
-                    local height = math.max(0, ContainerLayout.AbsoluteContentSize.Y + 4)
-                    Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, height)
-                end
-            end)
-        end)
+        -- Initial calculation in case children already exist
+        task.defer(recalcCanvas)
 
 		Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(1, Tab.Frame, "BackgroundTransparency")
 
