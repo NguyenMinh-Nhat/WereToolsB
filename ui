@@ -2269,32 +2269,105 @@ Components.Tab = (function()
             }),
         })
 
-        -- Ensure CanvasSize updates reliably when layout changes or children change
+        -- Enhanced canvas size recalculation with better timing
         local function recalcCanvas()
             if not Tab.ContainerFrame or not ContainerLayout then return end
+            
+            -- Use multiple deferred tasks to ensure layout has fully updated
             task.defer(function()
+                task.wait() -- Wait one frame for layout to settle
                 if not Tab.ContainerFrame or not ContainerLayout then return end
+                
                 local height = math.max(0, ContainerLayout.AbsoluteContentSize.Y + 8)
                 Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, height)
+                
                 if Tab.ContainerFrame.AbsoluteSize and Tab.ContainerFrame.AbsoluteSize.Y then
                     Tab.ContainerFrame.ScrollingEnabled = (height > Tab.ContainerFrame.AbsoluteSize.Y)
                 end
             end)
         end
 
-        Creator.AddSignal(ContainerLayout:GetPropertyChangedSignal("AbsoluteContentSize"), recalcCanvas)
-        Creator.AddSignal(Tab.ContainerFrame.ChildAdded, recalcCanvas)
-        Creator.AddSignal(Tab.ContainerFrame.ChildRemoved, recalcCanvas)
+        -- More comprehensive event handling for canvas updates
+        Creator.AddSignal(ContainerLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+            recalcCanvas()
+            -- Additional delayed recalculation to catch late updates
+            task.delay(0.1, recalcCanvas)
+        end)
+        
+        Creator.AddSignal(Tab.ContainerFrame.ChildAdded, function()
+            recalcCanvas()
+            task.delay(0.05, recalcCanvas)
+        end)
+        
+        Creator.AddSignal(Tab.ContainerFrame.ChildRemoved, function()
+            recalcCanvas()
+            task.delay(0.05, recalcCanvas)
+        end)
+
+        -- Handle descendant changes (for nested UI updates)
+        Creator.AddSignal(Tab.ContainerFrame.DescendantAdded, function(descendant)
+            if descendant:IsA("GuiObject") then
+                task.delay(0.02, recalcCanvas)
+            end
+        end)
+
+        Creator.AddSignal(Tab.ContainerFrame.DescendantRemoving, function(descendant)
+            if descendant:IsA("GuiObject") then
+                task.delay(0.02, recalcCanvas)
+            end
+        end)
 
         -- Recalculate when the frame becomes visible (layout may be 0 while invisible)
         Creator.AddSignal(Tab.ContainerFrame:GetPropertyChangedSignal("Visible"), function()
             if Tab.ContainerFrame.Visible then
                 task.defer(recalcCanvas)
+                -- Extra delay for tab switching
+                task.delay(0.15, recalcCanvas)
             end
         end)
 
+        -- Handle size changes that might affect scrolling
+        Creator.AddSignal(Tab.ContainerFrame:GetPropertyChangedSignal("AbsoluteSize"), function()
+            task.defer(recalcCanvas)
+        end)
+
+        -- Global recalculation for all tabs when window state changes
+        if Window and Window.ContainerHolder then
+            Creator.AddSignal(Window.ContainerHolder:GetPropertyChangedSignal("Visible"), function()
+                if Window.ContainerHolder.Visible then
+                    task.delay(0.1, recalcCanvas)
+                end
+            end)
+        end
+
+        -- Monitor for element visibility changes that might affect layout
+        local function monitorElementChanges()
+            for _, child in pairs(Tab.ContainerFrame:GetChildren()) do
+                if child:IsA("GuiObject") and child ~= ContainerLayout then
+                    Creator.AddSignal(child:GetPropertyChangedSignal("Visible"), function()
+                        task.delay(0.02, recalcCanvas)
+                    end)
+                    
+                    Creator.AddSignal(child:GetPropertyChangedSignal("Size"), function()
+                        task.delay(0.02, recalcCanvas)
+                    end)
+                end
+            end
+        end
+
+        -- Initial monitoring setup
+        task.defer(monitorElementChanges)
+        
+        -- Re-monitor when new children are added
+        Creator.AddSignal(Tab.ContainerFrame.ChildAdded, function()
+            task.delay(0.05, monitorElementChanges)
+        end)
+
         -- Initial calculation in case children already exist
-        task.defer(recalcCanvas)
+        task.defer(function()
+            recalcCanvas()
+            task.delay(0.1, recalcCanvas) -- Backup calculation
+        end)
 
 		Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(1, Tab.Frame, "BackgroundTransparency")
 
